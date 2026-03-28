@@ -13,7 +13,7 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("api/v1/user")
-@CrossOrigin // Allows React frontend to connect
+@CrossOrigin // Essential for React (port 5173/3000) to talk to Spring (8080)
 public class UserController {
 
     @Autowired
@@ -41,5 +41,39 @@ public class UserController {
             response.put("message", e.getMessage());
             return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
         }
+    }
+
+    @PostMapping("/login")
+    public ResponseEntity<Map<String, Object>> loginUser(@RequestBody UserDTO userDTO) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            String res = userService.loginUser(userDTO);
+            if (res.equals(VarList.RSP_SUCCESS)) {
+                response.put("code", VarList.RSP_SUCCESS);
+                response.put("message", "Login Successful");
+                response.put("token", "dummy-jwt-token"); // Required for your React logic
+                return new ResponseEntity<>(response, HttpStatus.OK);
+            } else if (res.equals(VarList.RSP_NOT_AUTHORISED)) {
+                response.put("code", VarList.RSP_NOT_AUTHORISED);
+                response.put("message", "Invalid Password");
+                return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+            } else {
+                response.put("code", VarList.RSP_NO_DATA_FOUND);
+                response.put("message", "Invalid Email or Password");
+                return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
+            }
+        } catch (Exception e) {
+            response.put("code", VarList.RSP_ERROR);
+            response.put("message", e.getMessage());
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<Map<String, Object>> logoutUser() {
+        Map<String, Object> response = new HashMap<>();
+        response.put("code", VarList.RSP_SUCCESS);
+        response.put("message", "Logged out successfully");
+        return new ResponseEntity<>(response, HttpStatus.OK);
     }
 }
