@@ -34,6 +34,8 @@ public class Task {
     private LocalDateTime createdAt;
     private LocalDateTime completedAt;
 
+    private int userId;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now(); // Requirement 3.3 auto-set

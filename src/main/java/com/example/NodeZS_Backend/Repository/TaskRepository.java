@@ -18,5 +18,7 @@ public interface TaskRepository extends JpaRepository<Task, Integer> {
      * @return A Page of Tasks
      */
     Page<Task> findByStatus(Status status, Pageable pageable);
+    Page<Task> findByAssigneeEmail(String email, Pageable pageable);
+    Page<Task> findByUserId(int userId, Pageable pageable);
 
 }

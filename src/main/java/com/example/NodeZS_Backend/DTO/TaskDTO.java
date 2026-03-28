@@ -20,4 +20,5 @@ public class TaskDTO {
     private String assigneeEmail;
     private LocalDateTime createdAt;
     private LocalDateTime completedAt;
+    private int userId;
 }

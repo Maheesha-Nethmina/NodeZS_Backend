@@ -54,36 +54,57 @@ public class TaskController {
     }
 
     /**
-     * UPDATED Requirement 82: Handles Pagination, Filtering, and Fixed Sorting.
-     * status: optional (null displays All)
-     * sortBy: "dueDate" (ASC) or "priority" (DESC for High->Medium->Low)
+     * Requirement 82: Handles Pagination, Filtering, and Fixed Sorting for All Tasks.
+     * Service handles the hierarchical sort: Status -> Priority.
      */
     @GetMapping("/getAllPaged")
     public ResponseEntity<Map<String, Object>> getAllTasksPaged(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) Status status,
-            @RequestParam(defaultValue = "dueDate") String sortBy) {
+            @RequestParam(required = false) Status status) {
 
         Map<String, Object> response = new HashMap<>();
         try {
-            Sort sort;
-            // Logic: Priority needs DESC to show High > Medium > Low alphabetically
-            // Due Date needs ASC to show soonest deadlines first
-            if ("priority".equalsIgnoreCase(sortBy)) {
-                sort = Sort.by("priority").descending();
-            } else {
-                sort = Sort.by("dueDate").ascending();
-            }
-
-            Pageable pageable = PageRequest.of(page, size, sort);
-
-            // Fetch data from service (Service handles null status as "fetch all")
+            Pageable pageable = PageRequest.of(page, size);
             Map<String, Object> content = taskService.getAllTasks(pageable, status);
 
             if (content != null) {
                 response.put("code", VarList.RSP_SUCCESS);
                 response.put("message", "Tasks retrieved successfully");
+                response.put("content", content);
+                return new ResponseEntity<>(response, HttpStatus.OK);
+            } else {
+                response.put("code", VarList.RSP_FAIL);
+                return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
+            }
+        } catch (Exception e) {
+            response.put("code", VarList.RSP_ERROR);
+            response.put("message", e.getMessage());
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * NEW: Fetch tasks assigned to the logged-in user.
+     * Used for the /my-tasks page.
+     * Applies the same hierarchical sort logic.
+     */
+    @GetMapping("/getMyTasks")
+    public ResponseEntity<Map<String, Object>> getMyTasks(
+            @RequestParam String email,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        Map<String, Object> response = new HashMap<>();
+        try {
+            Pageable pageable = PageRequest.of(page, size);
+
+            // Calls service method which handles Status-then-Priority sorting
+            Map<String, Object> content = taskService.getTasksByAssignee(email, pageable);
+
+            if (content != null) {
+                response.put("code", VarList.RSP_SUCCESS);
+                response.put("message", "Personal tasks retrieved");
                 response.put("content", content);
                 return new ResponseEntity<>(response, HttpStatus.OK);
             } else {
@@ -109,6 +130,41 @@ public class TaskController {
             if (res.equals(VarList.RSP_SUCCESS)) {
                 response.put("code", VarList.RSP_SUCCESS);
                 response.put("message", "Task Assigned and Status Updated");
+                return new ResponseEntity<>(response, HttpStatus.OK);
+            }
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            response.put("code", VarList.RSP_ERROR);
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    //update tasks
+    @PutMapping("/update")
+    public ResponseEntity<Map<String, Object>> updateTask(@RequestBody TaskDTO taskDTO) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            String res = taskService.updateTask(taskDTO);
+            if (res.equals(VarList.RSP_SUCCESS)) {
+                response.put("code", VarList.RSP_SUCCESS);
+                response.put("message", "Task updated successfully");
+                return new ResponseEntity<>(response, HttpStatus.OK);
+            }
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            response.put("code", VarList.RSP_ERROR);
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+//delete selectd task
+    @DeleteMapping("/delete/{taskid}")
+    public ResponseEntity<Map<String, Object>> deleteTask(@PathVariable int taskid) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            String res = taskService.deleteTask(taskid);
+            if (res.equals(VarList.RSP_SUCCESS)) {
+                response.put("code", VarList.RSP_SUCCESS);
+                response.put("message", "Task deleted successfully");
                 return new ResponseEntity<>(response, HttpStatus.OK);
             }
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
