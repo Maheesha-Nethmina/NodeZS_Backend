@@ -17,7 +17,7 @@ public class TaskDTO {
     private Status status;
     private Priority priority;
     private LocalDateTime dueDate;
-//    private String assigneeEmail;
+    private String assigneeEmail;
     private LocalDateTime createdAt;
     private LocalDateTime completedAt;
 }
