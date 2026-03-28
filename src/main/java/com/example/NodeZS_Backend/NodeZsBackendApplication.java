@@ -9,5 +9,4 @@ public class NodeZsBackendApplication {
 	public static void main(String[] args) {
 		SpringApplication.run(NodeZsBackendApplication.class, args);
 	}
-
 }

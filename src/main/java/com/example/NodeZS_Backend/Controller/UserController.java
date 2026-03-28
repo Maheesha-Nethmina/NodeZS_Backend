@@ -47,27 +47,29 @@ public class UserController {
     }
 
     /**
-     * Handles User Login
+     * UPDATED: Handles User Login and returns User Content.
      */
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> loginUser(@RequestBody UserDTO userDTO) {
         Map<String, Object> response = new HashMap<>();
         try {
-            String res = userService.loginUser(userDTO);
-            if (res.equals(VarList.RSP_SUCCESS)) {
-                response.put("code", VarList.RSP_SUCCESS);
+            // FIX: Service now returns UserDTO content
+            UserDTO authUser = userService.loginUser(userDTO);
+
+            if (authUser != null) {
+                response.put("code", VarList.RSP_SUCCESS); // "00"
                 response.put("message", "Login Successful");
-                // For the Bonus JWT requirement, you would include the token here [cite: 80]
+
+                // FIX: Send user name and email to React frontend
+                response.put("content", authUser);
+
+                // For the Bonus JWT requirement [cite: 80]
                 response.put("token", "dummy-jwt-token");
-                return new ResponseEntity<>(response, HttpStatus.OK);
-            } else if (res.equals(VarList.RSP_NOT_AUTHORISED)) {
+                return new ResponseEntity<>(response, HttpStatus.OK); // 200 OK
+            } else {
                 response.put("code", VarList.RSP_NOT_AUTHORISED);
                 response.put("message", "Invalid Credentials");
-                return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED);
-            } else {
-                response.put("code", VarList.RSP_NO_DATA_FOUND);
-                response.put("message", "User Not Found");
-                return new ResponseEntity<>(response, HttpStatus.NOT_FOUND);
+                return new ResponseEntity<>(response, HttpStatus.UNAUTHORIZED); // 401
             }
         } catch (Exception e) {
             response.put("code", VarList.RSP_ERROR);
@@ -78,7 +80,6 @@ public class UserController {
 
     /**
      * Handles User Logout
-     * Note: In a stateless JWT system, logout is mainly handled by the client [cite: 80]
      */
     @PostMapping("/logout")
     public ResponseEntity<Map<String, Object>> logoutUser() {
