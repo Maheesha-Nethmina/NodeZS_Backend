@@ -8,4 +8,5 @@ import org.springframework.stereotype.Repository;
 public interface UserRepository extends JpaRepository<User, Long> {
     // Helpful for checking duplicate emails
     boolean existsByEmail(String email);
+    User findByEmail(String email); // Add this line
 }
