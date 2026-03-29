@@ -126,16 +126,19 @@ public class TaskService {
      * NEW: Fetch tasks assigned specifically to a user (by email).
      * Supports pagination for the "My Tasks" view.
      */
-    public Map<String, Object> getTasksByAssignee(String email, Pageable pageable) {
+    /**
+     * UPDATED: Fetch tasks created/owned by a specific user using their ID.
+     */
+    public Map<String, Object> getTasksByUserId(int userId, Pageable pageable) {
         try {
-            // Requirement: Fetch tasks where assignee matches the user email
-            Page<Task> taskPage = taskRepository.findByAssigneeEmail(email, pageable);
+            // Querying by userId instead of assigneeEmail
+            Page<Task> taskPage = taskRepository.findByUserId(userId, pageable);
 
             List<TaskDTO> taskDTOList = new ArrayList<>();
             for (Task task : taskPage.getContent()) {
                 TaskDTO dto = new TaskDTO();
                 dto.setTaskid(task.getTaskid());
-                dto.setUserId(task.getUserId()); // Map UserID to DTO
+                dto.setUserId(task.getUserId());
                 dto.setTitle(task.getTitle());
                 dto.setDescription(task.getDescription());
                 dto.setStatus(task.getStatus());
@@ -196,6 +199,64 @@ public class TaskService {
         } catch (Exception e) {
             e.printStackTrace();
             return VarList.RSP_ERROR;
+        }
+    }
+
+
+    /**
+     * NEW: Fetch tasks assigned to a specific user (by assigneeEmail).
+     * This powers the Selection page.
+     */
+    /**
+     * UPDATED for Selection Page: Fetch tasks assigned to a specific user.
+     * Applied Hierarchical Sorting: Status (TODO -> IN_PROGRESS -> DONE)
+     * then Priority (HIGH -> MEDIUM -> LOW).
+     */
+    public Map<String, Object> getTasksByAssigneeEmail(String email, Pageable pageable) {
+        try {
+            // 1. Fetch all assigned tasks for this email
+            List<Task> allAssigned = taskRepository.findByAssigneeEmail(email);
+
+            // 2. Apply the custom sorting logic
+            allAssigned.sort((a, b) -> {
+                // First: Sort by Status (TODO < IN_PROGRESS < DONE)
+                int statusCompare = a.getStatus().ordinal() - b.getStatus().ordinal();
+                if (statusCompare != 0) return statusCompare;
+
+                // Second: Sort by Priority (HIGH < MEDIUM < LOW)
+                return a.getPriority().ordinal() - b.getPriority().ordinal();
+            });
+
+            // 3. Handle Manual Pagination
+            int start = (int) pageable.getOffset();
+            int end = Math.min((start + pageable.getPageSize()), allAssigned.size());
+            List<Task> pagedTasks = (start <= allAssigned.size()) ? allAssigned.subList(start, end) : new ArrayList<>();
+
+            // 4. Map to DTOs
+            List<TaskDTO> taskDTOList = new ArrayList<>();
+            for (Task task : pagedTasks) {
+                TaskDTO dto = new TaskDTO();
+                dto.setTaskid(task.getTaskid());
+                dto.setUserId(task.getUserId());
+                dto.setTitle(task.getTitle());
+                dto.setDescription(task.getDescription());
+                dto.setStatus(task.getStatus());
+                dto.setPriority(task.getPriority());
+                dto.setDueDate(task.getDueDate());
+                dto.setAssigneeEmail(task.getAssigneeEmail());
+                taskDTOList.add(dto);
+            }
+
+            Map<String, Object> responseData = new HashMap<>();
+            responseData.put("tasks", taskDTOList);
+            responseData.put("totalPages", (int) Math.ceil((double) allAssigned.size() / pageable.getPageSize()));
+            responseData.put("totalElements", allAssigned.size());
+            responseData.put("currentPage", pageable.getPageNumber());
+
+            return responseData;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
         }
     }
 }

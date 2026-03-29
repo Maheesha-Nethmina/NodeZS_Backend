@@ -91,7 +91,7 @@ public class TaskController {
      */
     @GetMapping("/getMyTasks")
     public ResponseEntity<Map<String, Object>> getMyTasks(
-            @RequestParam String email,
+            @RequestParam int userId, // Expecting userId from Frontend
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
@@ -99,21 +99,18 @@ public class TaskController {
         try {
             Pageable pageable = PageRequest.of(page, size);
 
-            // Calls service method which handles Status-then-Priority sorting
-            Map<String, Object> content = taskService.getTasksByAssignee(email, pageable);
+            // Calling the renamed service method
+            Map<String, Object> content = taskService.getTasksByUserId(userId, pageable);
 
             if (content != null) {
                 response.put("code", VarList.RSP_SUCCESS);
-                response.put("message", "Personal tasks retrieved");
+                response.put("message", "Tasks retrieved by User ID");
                 response.put("content", content);
                 return new ResponseEntity<>(response, HttpStatus.OK);
-            } else {
-                response.put("code", VarList.RSP_FAIL);
-                return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
             }
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         } catch (Exception e) {
             response.put("code", VarList.RSP_ERROR);
-            response.put("message", e.getMessage());
             return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -165,6 +162,37 @@ public class TaskController {
             if (res.equals(VarList.RSP_SUCCESS)) {
                 response.put("code", VarList.RSP_SUCCESS);
                 response.put("message", "Task deleted successfully");
+                return new ResponseEntity<>(response, HttpStatus.OK);
+            }
+            return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
+        } catch (Exception e) {
+            response.put("code", VarList.RSP_ERROR);
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
+        }
+    }
+
+    /**
+     * NEW: Fetch tasks where the user is the assignee.
+     */
+    /**
+     * Fetch tasks where the user is the assignee.
+     * Powers the Selection page with Checkbox updates.
+     */
+    @GetMapping("/getAssignedTasks")
+    public ResponseEntity<Map<String, Object>> getAssignedTasks(
+            @RequestParam String email,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size) {
+
+        Map<String, Object> response = new HashMap<>();
+        try {
+            // We pass the pageable; the Service now handles the complex Status -> Priority sort
+            Pageable pageable = PageRequest.of(page, size);
+            Map<String, Object> content = taskService.getTasksByAssigneeEmail(email, pageable);
+
+            if (content != null) {
+                response.put("code", VarList.RSP_SUCCESS);
+                response.put("content", content);
                 return new ResponseEntity<>(response, HttpStatus.OK);
             }
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
