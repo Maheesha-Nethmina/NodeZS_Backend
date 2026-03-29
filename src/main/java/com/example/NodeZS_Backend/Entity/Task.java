@@ -29,7 +29,7 @@ public class Task {
     private Priority priority;
 
     private LocalDateTime dueDate;
-    @Column(name = "assignee_email", nullable = true) // Explicitly allow null [cite: 56]
+    @Column(name = "assignee_email", nullable = true)
     private String assigneeEmail;
     private LocalDateTime createdAt;
     private LocalDateTime completedAt;

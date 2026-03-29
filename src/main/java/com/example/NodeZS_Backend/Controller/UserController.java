@@ -13,15 +13,13 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("api/v1/user")
-@CrossOrigin // Requirement: Allows React frontend to connect [cite: 22]
+@CrossOrigin
 public class UserController {
 
     @Autowired
     private UserService userService;
 
-    /**
-     * Handles User Registration
-     */
+    //Handles User Registration
     @PostMapping("/save")
     public ResponseEntity<Map<String, Object>> saveUser(@RequestBody UserDTO userDTO) {
         Map<String, Object> response = new HashMap<>();
@@ -30,11 +28,11 @@ public class UserController {
             if (res.equals(VarList.RSP_SUCCESS)) {
                 response.put("code", VarList.RSP_SUCCESS);
                 response.put("message", "User Registered Successfully");
-                return new ResponseEntity<>(response, HttpStatus.CREATED); // 201 Created [cite: 48]
+                return new ResponseEntity<>(response, HttpStatus.CREATED); // 201 Created
             } else if (res.equals(VarList.RSP_DUPLICATED)) {
                 response.put("code", VarList.RSP_DUPLICATED);
                 response.put("message", "Email Already Exists");
-                return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST); // 400 Bad Request [cite: 48]
+                return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST); // 400 Bad Request
             } else {
                 response.put("code", VarList.RSP_FAIL);
                 return new ResponseEntity<>(response, HttpStatus.BAD_REQUEST);
@@ -42,28 +40,25 @@ public class UserController {
         } catch (Exception e) {
             response.put("code", VarList.RSP_ERROR);
             response.put("message", e.getMessage());
-            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR); // 500 Error [cite: 48]
+            return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR); // 500 Error
         }
     }
-
-    /**
-     * UPDATED: Handles User Login and returns User Content.
-     */
+//Handles User Login and returns User Content.
     @PostMapping("/login")
     public ResponseEntity<Map<String, Object>> loginUser(@RequestBody UserDTO userDTO) {
         Map<String, Object> response = new HashMap<>();
         try {
-            // FIX: Service now returns UserDTO content
+            //Service now returns UserDTO content
             UserDTO authUser = userService.loginUser(userDTO);
 
             if (authUser != null) {
                 response.put("code", VarList.RSP_SUCCESS); // "00"
                 response.put("message", "Login Successful");
 
-                // FIX: Send user name and email to React frontend
+                // Send user name and email to React frontend
                 response.put("content", authUser);
 
-                // For the Bonus JWT requirement [cite: 80]
+                // For the Bonus JWT requirement
                 response.put("token", "dummy-jwt-token");
                 return new ResponseEntity<>(response, HttpStatus.OK); // 200 OK
             } else {
@@ -78,9 +73,7 @@ public class UserController {
         }
     }
 
-    /**
-     * Handles User Logout
-     */
+    //Handles User Logout
     @PostMapping("/logout")
     public ResponseEntity<Map<String, Object>> logoutUser() {
         Map<String, Object> response = new HashMap<>();

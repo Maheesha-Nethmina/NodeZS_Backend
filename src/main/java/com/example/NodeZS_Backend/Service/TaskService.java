@@ -23,9 +23,7 @@ public class TaskService {
     @Autowired
     private TaskRepository taskRepository;
 
-    /**
-     * Creates a new task with creator's User ID.
-     */
+    //create new task (userid saved)
     public String saveTask(TaskDTO taskDTO) {
         try {
             Task task = new Task();
@@ -49,10 +47,7 @@ public class TaskService {
         }
     }
 
-    /**
-     * Dashboard Fetch: Includes Status filtering and Manual Sort by Priority or Due Date.
-     * FIX: Calls taskRepository.findByStatus(status) which returns a List.
-     */
+    //Retrieves tasks for the dashboard with status filtering and custom sorting by priority or due date.
     public Map<String, Object> getAllTasks(Pageable pageable, Status status, String sortBy) {
         try {
             List<Task> allTasks;
@@ -62,7 +57,7 @@ public class TaskService {
                 allTasks = taskRepository.findAll();
             }
 
-            // --- CUSTOM SORTING ---
+            // make sorting
             allTasks.sort((a, b) -> {
                 if ("priority".equalsIgnoreCase(sortBy)) {
                     return a.getPriority().ordinal() - b.getPriority().ordinal();
@@ -81,10 +76,7 @@ public class TaskService {
         }
     }
 
-    /**
-     * Selection Page: Fetch tasks assigned to a specific user via email.
-     * Logic: Status (TODO -> IN_PROGRESS -> DONE) then Priority.
-     */
+    //Loads tasks assigned to a specific user and sorts them by their current status and priority level.
     public Map<String, Object> getTasksByAssigneeEmail(String email, Pageable pageable) {
         try {
             List<Task> allAssigned = taskRepository.findByAssigneeEmail(email);
@@ -102,14 +94,12 @@ public class TaskService {
         }
     }
 
-    /**
-     * My Tasks Page: Fetch tasks created by a specific user using their ID.
-     */
+   //display the task by using userid
     public Map<String, Object> getTasksByUserId(int userId, Pageable pageable) {
         try {
             List<Task> myCreatedTasks = taskRepository.findByUserId(userId);
 
-            // Default Sort: Due Date
+            // display accourding to due date
             myCreatedTasks.sort((a, b) -> {
                 if (a.getDueDate() == null && b.getDueDate() == null) return 0;
                 if (a.getDueDate() == null) return 1;
@@ -124,10 +114,9 @@ public class TaskService {
         }
     }
 
-    /**
-     * Shared Helper: Manual Pagination and DTO Mapping.
-     */
+   //Handles manual pagination by calculating list offsets and mapping the resulting sub-list into a standard response format.
     private Map<String, Object> manualPagination(List<Task> allItems, Pageable pageable) {
+   //Calculate the start and end indices for the current page slice
         int start = (int) pageable.getOffset();
         int end = Math.min((start + pageable.getPageSize()), allItems.size());
 
@@ -135,7 +124,7 @@ public class TaskService {
         if (start < allItems.size()) {
             pagedList = allItems.subList(start, end);
         }
-
+    //Convert Entity objects to DTOs to keep the API layer clean
         List<TaskDTO> taskDTOList = new ArrayList<>();
         for (Task task : pagedList) {
             TaskDTO dto = new TaskDTO();
@@ -151,7 +140,7 @@ public class TaskService {
             dto.setAssigneeEmail(task.getAssigneeEmail());
             taskDTOList.add(dto);
         }
-
+     //Wrap data with metadata (totals, pages) for the frontend pagination UI
         Map<String, Object> responseData = new HashMap<>();
         responseData.put("tasks", taskDTOList);
         responseData.put("totalPages", (int) Math.ceil((double) allItems.size() / pageable.getPageSize()));
@@ -161,10 +150,7 @@ public class TaskService {
         return responseData;
     }
 
-    /**
-     * Requirement 3.3 UPDATED: Update task status and record the assignee email.
-     * NEW FEATURE: If email is null or empty, it unassigns the task and sets status to TODO.
-     */
+    //update the task status
     public String updateTaskStatus(int taskid, Status status, String email) {
         try {
             Task task = taskRepository.findById(taskid).orElse(null);
@@ -196,9 +182,7 @@ public class TaskService {
         }
     }
 
-    /**
-     * Update full task details.
-     */
+    //update task details
     public String updateTask(TaskDTO taskDTO) {
         try {
             Task task = taskRepository.findById(taskDTO.getTaskid()).orElse(null);
@@ -219,9 +203,7 @@ public class TaskService {
         }
     }
 
-    /**
-     * Delete a task.
-     */
+    //delete task
     public String deleteTask(int taskid) {
         try {
             if (taskRepository.existsById(taskid)) {

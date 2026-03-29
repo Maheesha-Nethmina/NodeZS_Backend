@@ -16,15 +16,12 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("api/v1/task")
-@CrossOrigin // Allows React connection
+@CrossOrigin
 public class TaskController {
 
     @Autowired
     private TaskService taskService;
-
-    /**
-     * Requirement 3.1: Handles User Task Creation.
-     */
+    //Handles User Task Creation.
     @PostMapping("/save")
     public ResponseEntity<Map<String, Object>> saveTask(@RequestBody TaskDTO taskDTO) {
         Map<String, Object> response = new HashMap<>();
@@ -52,11 +49,7 @@ public class TaskController {
         }
     }
 
-    /**
-     * Requirement 82 UPDATED: Handles Pagination, Filtering, and Sorting.
-     * Receives 'sortBy' (dueDate or priority) from Frontend.
-     * Fixed Argument Logic: Corrected to match updated TaskService signature.
-     */
+   //Fetches all tasks with support for pagination, status filtering, and dynamic sorting by either due date or priority level.
     @GetMapping("/getAllPaged")
     public ResponseEntity<Map<String, Object>> getAllTasksPaged(
             @RequestParam(defaultValue = "0") int page,
@@ -86,10 +79,7 @@ public class TaskController {
         }
     }
 
-    /**
-     * Fetch tasks created by the logged-in user using userId.
-     * Used for the /my-tasks page.
-     */
+    //Fetch tasks created by the logged-in user using userId
     @GetMapping("/getMyTasks")
     public ResponseEntity<Map<String, Object>> getMyTasks(
             @RequestParam int userId,
@@ -116,9 +106,7 @@ public class TaskController {
         }
     }
 
-    /**
-     * Requirement 3.3: Update status and assignment.
-     */
+//     Update status and assignment.
     @PutMapping("/updateStatus")
     public ResponseEntity<Map<String, Object>> updateStatus(@RequestBody TaskDTO taskDTO) {
         Map<String, Object> response = new HashMap<>();
@@ -137,9 +125,7 @@ public class TaskController {
         }
     }
 
-    /**
-     * Update existing task details (Edit modal logic).
-     */
+//    Update existing task details (Edit modal logic).
     @PutMapping("/update")
     public ResponseEntity<Map<String, Object>> updateTask(@RequestBody TaskDTO taskDTO) {
         Map<String, Object> response = new HashMap<>();
@@ -157,9 +143,9 @@ public class TaskController {
         }
     }
 
-    /**
-     * Delete selected task.
-     */
+
+//     Delete selected task.
+
     @DeleteMapping("/delete/{taskid}")
     public ResponseEntity<Map<String, Object>> deleteTask(@PathVariable int taskid) {
         Map<String, Object> response = new HashMap<>();
@@ -177,10 +163,8 @@ public class TaskController {
         }
     }
 
-    /**
-     * Fetch tasks where the user is the assignee.
-     * Powers the Selection page with Checkbox updates.
-     */
+
+//     Fetch tasks where the user is the assignee.
     @GetMapping("/getAssignedTasks")
     public ResponseEntity<Map<String, Object>> getAssignedTasks(
             @RequestParam String email,

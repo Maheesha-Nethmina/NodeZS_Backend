@@ -7,16 +7,16 @@ import org.springframework.security.config.annotation.web.configuration.EnableWe
 import org.springframework.security.web.SecurityFilterChain;
 
 @Configuration
-@EnableWebSecurity // This tells Spring to apply this security logic
+@EnableWebSecurity
 public class SecurityConfig {
 
     @Bean
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
-                .csrf(csrf -> csrf.disable()) // Disable CSRF for testing REST APIs
-                .cors(cors -> cors.disable()) // Disable default CORS to prevent conflicts with your Controller's @CrossOrigin
+                .csrf(csrf -> csrf.disable())
+                .cors(cors -> cors.disable())
                 .authorizeHttpRequests(auth -> auth
-                        .anyRequest().permitAll() // This "opens the gates" for Postman and React
+                        .anyRequest().permitAll()
                 );
         return http.build();
     }
