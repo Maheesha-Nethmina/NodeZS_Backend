@@ -7,10 +7,10 @@ import com.example.NodeZS_Backend.Repository.TaskRepository;
 import com.example.NodeZS_Backend.Util.VarList;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -24,20 +24,17 @@ public class TaskService {
     private TaskRepository taskRepository;
 
     /**
-     * Requirement 3.1 UPDATED: Create a new task with creator's User ID.
+     * Creates a new task with creator's User ID.
      */
     public String saveTask(TaskDTO taskDTO) {
         try {
             Task task = new Task();
-            // CRITICAL UPDATE: Store the ID of the user creating the task
             task.setUserId(taskDTO.getUserId());
+            task.setTitle(taskDTO.getTitle());
+            task.setDescription(taskDTO.getDescription());
+            task.setDueDate(taskDTO.getDueDate());
+            task.setPriority(taskDTO.getPriority());
 
-            task.setTitle(taskDTO.getTitle()); // Required
-            task.setDescription(taskDTO.getDescription()); // Optional
-            task.setDueDate(taskDTO.getDueDate()); // Optional
-            task.setPriority(taskDTO.getPriority()); // Enum: LOW/MEDIUM/HIGH
-
-            // Ensure status is TODO on creation if not provided
             if (taskDTO.getStatus() == null) {
                 task.setStatus(Status.TODO);
             } else {
@@ -53,43 +50,32 @@ public class TaskService {
     }
 
     /**
-     * Requirement 82 & Filtering: Fetch tasks with Pagination and Status filtering.
-     * Maps Entities to DTOs including the userId.
+     * Dashboard Fetch: Includes Status filtering and Manual Sort by Priority or Due Date.
+     * FIX: Calls taskRepository.findByStatus(status) which returns a List.
      */
-    public Map<String, Object> getAllTasks(Pageable pageable, Status status) {
+    public Map<String, Object> getAllTasks(Pageable pageable, Status status, String sortBy) {
         try {
-            Page<Task> taskPage;
-
-            // Requirement: Ability to filter by status (To Do, In Progress, Done)
+            List<Task> allTasks;
             if (status != null) {
-                taskPage = taskRepository.findByStatus(status, pageable);
+                // Requires List<Task> findByStatus(Status status) in Repository
+                allTasks = taskRepository.findByStatus(status);
             } else {
-                taskPage = taskRepository.findAll(pageable);
+                allTasks = taskRepository.findAll();
             }
 
-            List<TaskDTO> taskDTOList = new ArrayList<>();
-            for (Task task : taskPage.getContent()) {
-                TaskDTO dto = new TaskDTO();
-                dto.setTaskid(task.getTaskid());
-                dto.setUserId(task.getUserId()); // NEW: Map UserID to DTO
-                dto.setTitle(task.getTitle());
-                dto.setDescription(task.getDescription());
-                dto.setStatus(task.getStatus());
-                dto.setPriority(task.getPriority());
-                dto.setDueDate(task.getDueDate());
-                dto.setCreatedAt(task.getCreatedAt());
-                dto.setCompletedAt(task.getCompletedAt());
-                dto.setAssigneeEmail(task.getAssigneeEmail());
-                taskDTOList.add(dto);
-            }
+            // --- CUSTOM SORTING ---
+            allTasks.sort((a, b) -> {
+                if ("priority".equalsIgnoreCase(sortBy)) {
+                    return a.getPriority().ordinal() - b.getPriority().ordinal();
+                } else {
+                    if (a.getDueDate() == null && b.getDueDate() == null) return 0;
+                    if (a.getDueDate() == null) return 1;
+                    if (b.getDueDate() == null) return -1;
+                    return a.getDueDate().compareTo(b.getDueDate());
+                }
+            });
 
-            Map<String, Object> responseData = new HashMap<>();
-            responseData.put("tasks", taskDTOList);
-            responseData.put("totalPages", taskPage.getTotalPages());
-            responseData.put("totalElements", taskPage.getTotalElements());
-            responseData.put("currentPage", taskPage.getNumber());
-
-            return responseData;
+            return manualPagination(allTasks, pageable);
         } catch (Exception e) {
             e.printStackTrace();
             return null;
@@ -97,19 +83,98 @@ public class TaskService {
     }
 
     /**
-     * Requirement 3.3: Update task status and record the assignee email.
+     * Selection Page: Fetch tasks assigned to a specific user via email.
+     * Logic: Status (TODO -> IN_PROGRESS -> DONE) then Priority.
+     */
+    public Map<String, Object> getTasksByAssigneeEmail(String email, Pageable pageable) {
+        try {
+            List<Task> allAssigned = taskRepository.findByAssigneeEmail(email);
+
+            allAssigned.sort((a, b) -> {
+                int statusCompare = a.getStatus().ordinal() - b.getStatus().ordinal();
+                if (statusCompare != 0) return statusCompare;
+                return a.getPriority().ordinal() - b.getPriority().ordinal();
+            });
+
+            return manualPagination(allAssigned, pageable);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * My Tasks Page: Fetch tasks created by a specific user using their ID.
+     */
+    public Map<String, Object> getTasksByUserId(int userId, Pageable pageable) {
+        try {
+            // Requires List<Task> findByUserId(int userId) in Repository
+            List<Task> myCreatedTasks = taskRepository.findByUserId(userId);
+
+            // Default Sort: Due Date
+            myCreatedTasks.sort((a, b) -> {
+                if (a.getDueDate() == null && b.getDueDate() == null) return 0;
+                if (a.getDueDate() == null) return 1;
+                if (b.getDueDate() == null) return -1;
+                return a.getDueDate().compareTo(b.getDueDate());
+            });
+
+            return manualPagination(myCreatedTasks, pageable);
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * Shared Helper: Manual Pagination and DTO Mapping.
+     */
+    private Map<String, Object> manualPagination(List<Task> allItems, Pageable pageable) {
+        int start = (int) pageable.getOffset();
+        int end = Math.min((start + pageable.getPageSize()), allItems.size());
+
+        List<Task> pagedList = new ArrayList<>();
+        if (start < allItems.size()) {
+            pagedList = allItems.subList(start, end);
+        }
+
+        List<TaskDTO> taskDTOList = new ArrayList<>();
+        for (Task task : pagedList) {
+            TaskDTO dto = new TaskDTO();
+            dto.setTaskid(task.getTaskid());
+            dto.setUserId(task.getUserId());
+            dto.setTitle(task.getTitle());
+            dto.setDescription(task.getDescription());
+            dto.setStatus(task.getStatus());
+            dto.setPriority(task.getPriority());
+            dto.setDueDate(task.getDueDate());
+            dto.setCreatedAt(task.getCreatedAt());
+            dto.setCompletedAt(task.getCompletedAt());
+            dto.setAssigneeEmail(task.getAssigneeEmail());
+            taskDTOList.add(dto);
+        }
+
+        Map<String, Object> responseData = new HashMap<>();
+        responseData.put("tasks", taskDTOList);
+        responseData.put("totalPages", (int) Math.ceil((double) allItems.size() / pageable.getPageSize()));
+        responseData.put("totalElements", allItems.size());
+        responseData.put("currentPage", pageable.getPageNumber());
+
+        return responseData;
+    }
+
+    /**
+     * Update task status (Assignment checkbox logic).
      */
     public String updateTaskStatus(int taskid, Status status, String email) {
         try {
             Task task = taskRepository.findById(taskid).orElse(null);
             if (task != null) {
                 task.setStatus(status);
-                // Requirement 3.1: Update the assigneeEmail with the logged-in user's email
                 task.setAssigneeEmail(email);
 
-                // Optional: If status is DONE, set completion time
                 if (status == Status.DONE) {
-                    task.setCompletedAt(java.time.LocalDateTime.now());
+                    task.setCompletedAt(LocalDateTime.now());
                 }
 
                 taskRepository.save(task);
@@ -123,48 +188,7 @@ public class TaskService {
     }
 
     /**
-     * NEW: Fetch tasks assigned specifically to a user (by email).
-     * Supports pagination for the "My Tasks" view.
-     */
-    /**
-     * UPDATED: Fetch tasks created/owned by a specific user using their ID.
-     */
-    public Map<String, Object> getTasksByUserId(int userId, Pageable pageable) {
-        try {
-            // Querying by userId instead of assigneeEmail
-            Page<Task> taskPage = taskRepository.findByUserId(userId, pageable);
-
-            List<TaskDTO> taskDTOList = new ArrayList<>();
-            for (Task task : taskPage.getContent()) {
-                TaskDTO dto = new TaskDTO();
-                dto.setTaskid(task.getTaskid());
-                dto.setUserId(task.getUserId());
-                dto.setTitle(task.getTitle());
-                dto.setDescription(task.getDescription());
-                dto.setStatus(task.getStatus());
-                dto.setPriority(task.getPriority());
-                dto.setDueDate(task.getDueDate());
-                dto.setCreatedAt(task.getCreatedAt());
-                dto.setCompletedAt(task.getCompletedAt());
-                dto.setAssigneeEmail(task.getAssigneeEmail());
-                taskDTOList.add(dto);
-            }
-
-            Map<String, Object> responseData = new HashMap<>();
-            responseData.put("tasks", taskDTOList);
-            responseData.put("totalPages", taskPage.getTotalPages());
-            responseData.put("totalElements", taskPage.getTotalElements());
-            responseData.put("currentPage", taskPage.getNumber());
-
-            return responseData;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
-        }
-    }
-
-    /**
-     * Update selected task details.
+     * Update full task details.
      */
     public String updateTask(TaskDTO taskDTO) {
         try {
@@ -187,7 +211,7 @@ public class TaskService {
     }
 
     /**
-     * Delete selected task.
+     * Delete a task.
      */
     public String deleteTask(int taskid) {
         try {
@@ -199,64 +223,6 @@ public class TaskService {
         } catch (Exception e) {
             e.printStackTrace();
             return VarList.RSP_ERROR;
-        }
-    }
-
-
-    /**
-     * NEW: Fetch tasks assigned to a specific user (by assigneeEmail).
-     * This powers the Selection page.
-     */
-    /**
-     * UPDATED for Selection Page: Fetch tasks assigned to a specific user.
-     * Applied Hierarchical Sorting: Status (TODO -> IN_PROGRESS -> DONE)
-     * then Priority (HIGH -> MEDIUM -> LOW).
-     */
-    public Map<String, Object> getTasksByAssigneeEmail(String email, Pageable pageable) {
-        try {
-            // 1. Fetch all assigned tasks for this email
-            List<Task> allAssigned = taskRepository.findByAssigneeEmail(email);
-
-            // 2. Apply the custom sorting logic
-            allAssigned.sort((a, b) -> {
-                // First: Sort by Status (TODO < IN_PROGRESS < DONE)
-                int statusCompare = a.getStatus().ordinal() - b.getStatus().ordinal();
-                if (statusCompare != 0) return statusCompare;
-
-                // Second: Sort by Priority (HIGH < MEDIUM < LOW)
-                return a.getPriority().ordinal() - b.getPriority().ordinal();
-            });
-
-            // 3. Handle Manual Pagination
-            int start = (int) pageable.getOffset();
-            int end = Math.min((start + pageable.getPageSize()), allAssigned.size());
-            List<Task> pagedTasks = (start <= allAssigned.size()) ? allAssigned.subList(start, end) : new ArrayList<>();
-
-            // 4. Map to DTOs
-            List<TaskDTO> taskDTOList = new ArrayList<>();
-            for (Task task : pagedTasks) {
-                TaskDTO dto = new TaskDTO();
-                dto.setTaskid(task.getTaskid());
-                dto.setUserId(task.getUserId());
-                dto.setTitle(task.getTitle());
-                dto.setDescription(task.getDescription());
-                dto.setStatus(task.getStatus());
-                dto.setPriority(task.getPriority());
-                dto.setDueDate(task.getDueDate());
-                dto.setAssigneeEmail(task.getAssigneeEmail());
-                taskDTOList.add(dto);
-            }
-
-            Map<String, Object> responseData = new HashMap<>();
-            responseData.put("tasks", taskDTOList);
-            responseData.put("totalPages", (int) Math.ceil((double) allAssigned.size() / pageable.getPageSize()));
-            responseData.put("totalElements", allAssigned.size());
-            responseData.put("currentPage", pageable.getPageNumber());
-
-            return responseData;
-        } catch (Exception e) {
-            e.printStackTrace();
-            return null;
         }
     }
 }

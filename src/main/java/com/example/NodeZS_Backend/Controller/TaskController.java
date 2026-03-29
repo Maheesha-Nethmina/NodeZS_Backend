@@ -7,7 +7,6 @@ import com.example.NodeZS_Backend.Util.VarList;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
-import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -54,19 +53,22 @@ public class TaskController {
     }
 
     /**
-     * Requirement 82: Handles Pagination, Filtering, and Fixed Sorting for All Tasks.
-     * Service handles the hierarchical sort: Status -> Priority.
+     * Requirement 82 UPDATED: Handles Pagination, Filtering, and Sorting.
+     * Receives 'sortBy' (dueDate or priority) from Frontend.
+     * Fixed Argument Logic: Corrected to match updated TaskService signature.
      */
     @GetMapping("/getAllPaged")
     public ResponseEntity<Map<String, Object>> getAllTasksPaged(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size,
-            @RequestParam(required = false) Status status) {
+            @RequestParam(required = false) Status status,
+            @RequestParam(defaultValue = "dueDate") String sortBy) {
 
         Map<String, Object> response = new HashMap<>();
         try {
             Pageable pageable = PageRequest.of(page, size);
-            Map<String, Object> content = taskService.getAllTasks(pageable, status);
+            // Pass pageable, status, and sortBy to the manual sorting logic in Service
+            Map<String, Object> content = taskService.getAllTasks(pageable, status, sortBy);
 
             if (content != null) {
                 response.put("code", VarList.RSP_SUCCESS);
@@ -85,13 +87,12 @@ public class TaskController {
     }
 
     /**
-     * NEW: Fetch tasks assigned to the logged-in user.
+     * Fetch tasks created by the logged-in user using userId.
      * Used for the /my-tasks page.
-     * Applies the same hierarchical sort logic.
      */
     @GetMapping("/getMyTasks")
     public ResponseEntity<Map<String, Object>> getMyTasks(
-            @RequestParam int userId, // Expecting userId from Frontend
+            @RequestParam int userId,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "10") int size) {
 
@@ -99,18 +100,18 @@ public class TaskController {
         try {
             Pageable pageable = PageRequest.of(page, size);
 
-            // Calling the renamed service method
             Map<String, Object> content = taskService.getTasksByUserId(userId, pageable);
 
             if (content != null) {
                 response.put("code", VarList.RSP_SUCCESS);
-                response.put("message", "Tasks retrieved by User ID");
+                response.put("message", "Personal tasks retrieved by User ID");
                 response.put("content", content);
                 return new ResponseEntity<>(response, HttpStatus.OK);
             }
             return new ResponseEntity<>(HttpStatus.BAD_REQUEST);
         } catch (Exception e) {
             response.put("code", VarList.RSP_ERROR);
+            response.put("message", e.getMessage());
             return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
@@ -136,7 +137,9 @@ public class TaskController {
         }
     }
 
-    //update tasks
+    /**
+     * Update existing task details (Edit modal logic).
+     */
     @PutMapping("/update")
     public ResponseEntity<Map<String, Object>> updateTask(@RequestBody TaskDTO taskDTO) {
         Map<String, Object> response = new HashMap<>();
@@ -153,7 +156,10 @@ public class TaskController {
             return new ResponseEntity<>(response, HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
-//delete selectd task
+
+    /**
+     * Delete selected task.
+     */
     @DeleteMapping("/delete/{taskid}")
     public ResponseEntity<Map<String, Object>> deleteTask(@PathVariable int taskid) {
         Map<String, Object> response = new HashMap<>();
@@ -172,9 +178,6 @@ public class TaskController {
     }
 
     /**
-     * NEW: Fetch tasks where the user is the assignee.
-     */
-    /**
      * Fetch tasks where the user is the assignee.
      * Powers the Selection page with Checkbox updates.
      */
@@ -186,8 +189,8 @@ public class TaskController {
 
         Map<String, Object> response = new HashMap<>();
         try {
-            // We pass the pageable; the Service now handles the complex Status -> Priority sort
             Pageable pageable = PageRequest.of(page, size);
+            // Service handles Status -> Priority sort for assigned selections
             Map<String, Object> content = taskService.getTasksByAssigneeEmail(email, pageable);
 
             if (content != null) {
