@@ -6,6 +6,7 @@ import com.example.NodeZS_Backend.Repository.UserRepository;
 import com.example.NodeZS_Backend.Util.VarList;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 @Service
@@ -14,6 +15,8 @@ public class UserService {
 
     @Autowired
     private UserRepository userRepository;
+
+    private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder();
 
     /**
      * Requirement 4.1: Proper separation of concerns.
@@ -26,37 +29,39 @@ public class UserService {
             User user = new User();
             user.setName(userDTO.getName());
             user.setEmail(userDTO.getEmail());
-            // Mapping the password sent from the React frontend
-            user.setPassword(userDTO.getPassword());
+
+            // FIX: Encrypt the password and save only the encrypted version
+            user.setPassword(passwordEncoder.encode(userDTO.getPassword()));
+
             userRepository.save(user);
             return VarList.RSP_SUCCESS;
         }
     }
 
     /**
-     * Logic for user authentication.
-     * Compares credentials provided by the LoginPage.
+     * UPDATED: Returns UserDTO so the frontend can display the user's name.
+     * Compares hashed credentials using BCrypt.
      */
-    public String loginUser(UserDTO userDTO) {
+    public UserDTO loginUser(UserDTO userDTO) {
         User user = userRepository.findByEmail(userDTO.getEmail());
 
         if (user != null) {
-            // Requirement 3.1: Task Assignment uses email as the identifier.
-            if (user.getPassword().equals(userDTO.getPassword())) {
-                return VarList.RSP_SUCCESS;
-            } else {
-                return VarList.RSP_NOT_AUTHORISED;
+            if (passwordEncoder.matches(userDTO.getPassword(), user.getPassword())) {
+                UserDTO responseDTO = new UserDTO();
+                // FIX: Map the User ID from the Entity to the DTO
+                responseDTO.setId(user.getId());
+                responseDTO.setName(user.getName());
+                responseDTO.setEmail(user.getEmail());
+                return responseDTO;
             }
         }
-        return VarList.RSP_NO_DATA_FOUND;
+        return null;
     }
 
     /**
      * Handles logout logic.
-     * Currently returns success to confirm the request was processed.
      */
     public String logoutUser() {
-        // You can add logic here to log the logout time or audit the event
         return VarList.RSP_SUCCESS;
     }
 }
