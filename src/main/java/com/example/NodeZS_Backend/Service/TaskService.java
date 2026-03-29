@@ -57,7 +57,6 @@ public class TaskService {
         try {
             List<Task> allTasks;
             if (status != null) {
-                // Requires List<Task> findByStatus(Status status) in Repository
                 allTasks = taskRepository.findByStatus(status);
             } else {
                 allTasks = taskRepository.findAll();
@@ -108,7 +107,6 @@ public class TaskService {
      */
     public Map<String, Object> getTasksByUserId(int userId, Pageable pageable) {
         try {
-            // Requires List<Task> findByUserId(int userId) in Repository
             List<Task> myCreatedTasks = taskRepository.findByUserId(userId);
 
             // Default Sort: Due Date
@@ -164,17 +162,28 @@ public class TaskService {
     }
 
     /**
-     * Update task status (Assignment checkbox logic).
+     * Requirement 3.3 UPDATED: Update task status and record the assignee email.
+     * NEW FEATURE: If email is null or empty, it unassigns the task and sets status to TODO.
      */
     public String updateTaskStatus(int taskid, Status status, String email) {
         try {
             Task task = taskRepository.findById(taskid).orElse(null);
             if (task != null) {
-                task.setStatus(status);
-                task.setAssigneeEmail(email);
+                // Check for unassignment request (empty email)
+                if (email == null || email.trim().isEmpty()) {
+                    task.setAssigneeEmail(null);
+                    task.setStatus(Status.TODO); // Make it available for others
+                    task.setCompletedAt(null);    // Reset completion time
+                } else {
+                    task.setStatus(status);
+                    task.setAssigneeEmail(email);
 
-                if (status == Status.DONE) {
-                    task.setCompletedAt(LocalDateTime.now());
+                    // Handle completion timestamp
+                    if (status == Status.DONE) {
+                        task.setCompletedAt(LocalDateTime.now());
+                    } else {
+                        task.setCompletedAt(null);
+                    }
                 }
 
                 taskRepository.save(task);
